@@ -17,7 +17,6 @@ void RGldfx(double *x0,double *x,int *n);
 //void RIsGld(double *x,int *n);
 
 void FitGBD(double *x0,int *n,int *m,double *l,double *x);
-void FitGLD(double *x0,int *m,double *l);
 void FitGBDMom(double *x0,int *m,double *l);
 
 void GLDMoM(double *xmts, double *chisq, int *m,double *os, double *xbin);
@@ -35,7 +34,7 @@ static const R_FortranMethodDef FortEntries[] = {
   {"RGldFx", (DL_FUNC) & RGldFx, 3},
   {"RGldfx", (DL_FUNC) & RGldfx, 3},
   {"FitGBD", (DL_FUNC) & FitGBD, 5},
-  {"FitGLD", (DL_FUNC) & FitGLD, 3},
+
   {"GLDMoM", (DL_FUNC) & GLDMoM, 5},
   {"GLDMoP", (DL_FUNC) & GLDMoP, 5},
   {"GLDLMoM", (DL_FUNC) & GLDLMoM, 5},

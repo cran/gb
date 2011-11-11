@@ -19,7 +19,7 @@ int ValidGBD(double l1, double l2, double l3, double l4)
 }
 double Gbdfx(double x, double l1, double l2, double l3, double l4){
   double x0, Fx;
-  int i;
+
   x0 = (x-l1)/l2;
   if(x0>=0. && x0<=1.){
     Fx = dbeta(x0, l3+1.,l4+1.,0);
@@ -189,11 +189,11 @@ Fitting GBD: MoM
 
 void FitGBDMom(double *x, int *l, double *lmd){
   double mt1,mt2,mt3,mt4;
-  double mp1,mp2, mp3, mp4;
-  double lmt1, lmt2, lmt3, lmt4;
+
+
   int n=l[0], Iter=500; // sample size;
   int Igrid=200,Jgrid=200;
-  double Eps = 1.e-16, sqrtn = sqrt(n*1.);
+  double Eps = 1.e-16;
   
   double l1,l2,l3,l4;
   int i, j, k;
@@ -233,7 +233,7 @@ void FitGBDMom(double *x, int *l, double *lmd){
   edf[n-1] =1.;
 
   double gbdmom3 = -.99999,gbdmom4 = -.99999;
-  double lstep2 = 0.0002/Igrid;
+
 
 
   double mmt1=0., mmt2=0., mmt3=0., mmt4=0.;

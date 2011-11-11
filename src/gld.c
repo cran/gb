@@ -272,11 +272,10 @@ double cD(double l3, double l4)
 
 double alpha3(double l3, double l4)
 {
-  double A,B,C,D;
+  double A,B,C;
   A = cA(l3,l4);
   B = cB(l3,l4);
   C = cC(l3,l4);
-  D = cD(l3,l4);
   return((C-3.0 * A * B+ 2.0 * pow(A,3.0))
 	 /pow(fabs(B-pow(A,2.0)),1.5));
 }
@@ -324,372 +323,6 @@ double rho4(double l3, double l4)
 	 /(pow(.9,l3)-pow(.1,l4)+pow(.9,l4)-pow(.1,l3)));
 }
 
-void FitGLD(double *x, int *l, double *lmd){
-  double mt1,mt2,mt3,mt4;
-  double mp1,mp2, mp3, mp4;
-  double lmt1, lmt2, lmt3, lmt4;
-  int n=l[0], Iter=500; // sample size;
-  int Igrid=200,Jgrid=200;
-  double Eps = 1.e-16, sqrtn = sqrt(n*1.);
-  
-  double l1,l2,l3,l4;
-  int i, j, k;
-  
-  // To compute the first four sample moments
-  j = n/2;
-  k = n%2;
-  if(k==1) mt1 = x[n-1];
-  for(i = 0; i < j; i++) mt1 += x[i]+x[n-i-k-1];
-  mt1 /= n;
-  if(k==1){
-    mt2 = pow(x[n-1]-mt1,2.);
-    mt3 = pow(x[n-1]-mt1,3.);
-    mt4 = pow(x[n-1]-mt1,4.);
-  }
-  for(i = 0; i < j; i++) {
-    mt2 += pow(x[i]-mt1,2.) + pow(x[n-1-i-k]-mt1,2.);
-    mt3 += pow(x[i]-mt1,3.) + pow(x[n-1-i-k]-mt1,3.);
-    mt4 += pow(x[i]-mt1,4.) + pow(x[n-1-i-k]-mt1,4.);
-  }
-  mt2 /= n;
-  mt3 = mt3/pow(mt2,1.5)/n;
-  mt4 = mt4/pow(mt2,2.)/n;
-
-  //To compute the first four L-Moments
-  //Re-use variable l1..l4;
-  double l0=0.; 
-  l1=0.;l2=0.,l3=0.,l4=0.;
-  l0 = mt1;
-  for(i=1;i<n;i++){
-    l1 += i * x[i]/n/(n-1.);
-  }
-  for(i=2;i<n;i++){
-    l2 += i*(i-1.) * x[i]/n/(n-1.)/(n-2.);
-  }
-  for(i=3;i<n;i++){
-    l3 += i*(i-1.)*(i-2.) * x[i]/n/(n-1.)/(n-2.)/(n-3.);
-  }
-  lmt1 = l0;
-  lmt2 = -l0+2.*l1;
-  lmt3 = l0-6.*l1+6.*l2;
-  lmt4 = -l0+12.*l1-30.*l2+20.*l3;
-  
-  // To compute the first four percentiles?
-  double p90,p10,p75,p25,p50;
-  double d,f;
-  f = (n+1.)*.5;
-  j = floor(f);
-  d = f-j;
-  p50 = x[j-1]+d*(x[j]-x[j-1]);
-  f = (n+1.)*.9;
-  j = floor(f);
-  d = f-j*1.;
-  p90 = x[j-1]+d*(x[j]-x[j-1]);
-  f = (n+1.)*.1;
-  j = floor(f);
-  d = f-j*1.;
-  p10 = x[j-1]+d*(x[j]-x[j-1]);
-  f = (n+1.)*.75;
-  j = floor(f);
-  d = f-j*1.;
-  p75 = x[j-1]+d*(x[j]-x[j-1]);
-  f = (n+1.)*.25;
-  j = floor(f);
-  d = f-j*1.;
-  p25 = x[j-1]+d*(x[j]-x[j-1]);
-  mp1 = p50;
-  mp2 = p90-p10;
-  mp3 = (p50-p10)/(p90-p50);
-  mp4 = (p75-p25)/mp2;
-
-  //To compute the EDF: empirical distribution function.
-  double edf[n];
-  k=1;l0=x[0];
-  for(i=1;i<n;i++){
-    if(x[i]==l0){k += 1;}
-    else{
-      for(j=1;j<k+1;j++){
-	edf[i-j] = (i-(k-1.)/2.)/n;
-	l0 = x[i];
-	k=1;
-      }
-    }
-  }
-  edf[n-1] =1.;
-
-  double gldmom3 = -.24999,gldmom4 = -.24999;
-  double gldmop3 =0.000000001,gldmop4 =0.000000001;
-  double gldlmom3 = -.24999,gldlmom4 = -.24999;
-  double gldmom3b = -.0001,gldmom4b = -.0001;
-  double lstep2 = 0.0002/Igrid;
-
-
-  double mmt1=0., mmt2=0., mmt3=0., mmt4=0.;
-  double dksa=-999.,ksmin=999.;
-
-  int igrid, jgrid,status=0;
-  double f1, f2;
-  double df13,df23,df14,df24;
-  double fdf;
-  double h = 0.001;
-  double lstep =1./Igrid;
-
-  for(igrid=0;igrid<Igrid;igrid++){
-    gldmom3 += lstep;
-    gldlmom3 += lstep;
-    gldmop3 += lstep;
-    gldmom3b += lstep2;
-    
-    for(jgrid=0;jgrid<Jgrid;jgrid++){
-      gldmom4 += lstep;
-      gldlmom3 += lstep;
-      gldmop4 += lstep;
-      gldmom4b += lstep2;
-     
-      //  Fit with GLD MoM; *********
-      //	l3 = 1./runif(0.,1.)-1.25;
-      //	l4 = 1./runif(0.,1.)-1.25;
-      l3 = gldmom3;
-      l4 = gldmom4;
-      f1=1.; f2=1.;
-      i=0; k=0;
-      
-      mmt1=mt1; mmt2=mt2; mmt3=mt3; mmt4=mt4;
-      while((i < Iter) && (fabs(f1) > Eps||fabs(f2) > Eps)) {
-	i = i+1;
-	f1 = alpha3(l3,l4)-mmt3;
-	f2 = alpha4(l3,l4)-mmt4;
-	df13 = ( -alpha3(l3+2.*h,l4)
-		 + 8. * alpha3(l3+h,l4)
-		 - 8. * alpha3(l3-h,l4)
-		 + alpha3(l3-2.*h,l4))/(12.* h);
-	df23 = ( -alpha4(l3+2.*h,l4)
-		 + 8. * alpha4(l3+h,l4)
-		 - 8. * alpha4(l3-h,l4)
-		 + alpha4(l3-2.*h,l4))/(12.* h);
-	df14 = ( -alpha3(l3,l4+2.*h)
-		 + 8. * alpha3(l3,l4+h)
-		 - 8. * alpha3(l3,l4-h)
-		 + alpha3(l3,l4-2.*h))/(12.* h);
-	df24 = ( -alpha4(l3,l4+2.*h)
-		 + 8. * alpha4(l3,l4+h)
-		 - 8. * alpha4(l3,l4-h)
-		 + alpha4(l3,l4-2.*h))/(12.* h);
-	fdf = df13*df24 - df14*df23;
-	if(fdf == 0.) {i=Iter;}
-	else{
-	  l3 = l3 - (f1*df24 - f2*df14)/fdf;
-	  l4 = l4 + (f1*df23 - f2*df13)/fdf;
-	}
-	f1 = alpha3(l3,l4)-mmt3;
-	f2 = alpha4(l3,l4)-mmt4;
-      }
-      l2 = sqrt((cB(l3,l4) - pow(cA(l3,l4),2.))/mmt2);
-      if(l3 > -.25 && l4 > -.25 && i<Iter && l2 !=0.){
-	l1 = mmt1-cA(l3,l4)/l2;
-	if(ValidGLD(l1,l2,l3,l4)==0){
-	  l2 = -l2;
-	  l1 = mmt1-cA(l3,l4)/l2;
-	}
-	if(ValidGLD(l1,l2,l3,l4)==1){// better estimates?
-	  status++;
-	  dksa=-999.;  // KS test based on CDF
-	  for(j=0;j<n;j++){
-	    l0 = GldFx(x[j],l1,l2,l3,l4);
-	    dksa = fmax(dksa, fabs(l0-edf[j]));
-	  }
-	  if(dksa<ksmin&& !ISNAN(dksa)){
-	    ksmin = dksa;
-	    lmd[0] = l1;
-	    lmd[1] = l2;
-	    lmd[2] = l3;
-	    lmd[3] = l4;
-	  }
-	  // end of model selection
-	}
-      }
-
-
-      l3 = gldmom3b;
-      l4 = gldmom4b;
-      f1=1.; f2=1.;
-      i=0; k=0;
-      
-      mmt1=mt1; mmt2=mt2; mmt3=mt3; mmt4=mt4;
-      while((i < Iter) && (fabs(f1) > Eps||fabs(f2) > Eps)) {
-	i = i+1;
-	f1 = alpha3(l3,l4)-mmt3;
-	f2 = alpha4(l3,l4)-mmt4;
-	df13 = ( -alpha3(l3+2.*h,l4)
-		 + 8. * alpha3(l3+h,l4)
-		 - 8. * alpha3(l3-h,l4)
-		 + alpha3(l3-2.*h,l4))/(12.* h);
-	df23 = ( -alpha4(l3+2.*h,l4)
-		 + 8. * alpha4(l3+h,l4)
-		 - 8. * alpha4(l3-h,l4)
-		 + alpha4(l3-2.*h,l4))/(12.* h);
-	df14 = ( -alpha3(l3,l4+2.*h)
-		 + 8. * alpha3(l3,l4+h)
-		 - 8. * alpha3(l3,l4-h)
-		 + alpha3(l3,l4-2.*h))/(12.* h);
-	df24 = ( -alpha4(l3,l4+2.*h)
-		 + 8. * alpha4(l3,l4+h)
-		 - 8. * alpha4(l3,l4-h)
-		 + alpha4(l3,l4-2.*h))/(12.* h);
-	fdf = df13*df24 - df14*df23;
-	if(fdf == 0.) {i=Iter;}
-	else{
-	  l3 = l3 - (f1*df24 - f2*df14)/fdf;
-	  l4 = l4 + (f1*df23 - f2*df13)/fdf;
-	}
-	f1 = alpha3(l3,l4)-mmt3;
-	f2 = alpha4(l3,l4)-mmt4;
-      }
-      l2 = sqrt((cB(l3,l4) - pow(cA(l3,l4),2.))/mmt2);
-      if(l3 > -.25 && l4 > -.25 && i<Iter && l2 !=0.){
-	l1 = mmt1-cA(l3,l4)/l2;
-	if(ValidGLD(l1,l2,l3,l4)==0){
-	  l2 = -l2;
-	  l1 = mmt1-cA(l3,l4)/l2;
-	}
-	if(ValidGLD(l1,l2,l3,l4)==1){// better estimates?
-	  status++;
-	  dksa=-999.;  // KS test based on CDF
-	  for(j=0;j<n;j++){
-	    l0 = GldFx(x[j],l1,l2,l3,l4);
-	    dksa = fmax(dksa, fabs(l0-edf[j]));
-	  }
-	  if(dksa<ksmin&& !ISNAN(dksa)){
-	    ksmin = dksa;
-	    lmd[0] = l1;
-	    lmd[1] = l2;
-	    lmd[2] = l3;
-	    lmd[3] = l4;
-	  }
-	  // end of model selection
-	}
-      }
-  
-      // end of GLD MoM
-    
-      //  Fit with GLD LMoM; *********
-      l3 = gldmom3;
-      l4 = gldmom4;
-      f1=1.; f2=1.;
-      i=0; k=0;
-      
-      mmt1=lmt1; mmt2=lmt2; mmt3=lmt3; mmt4=lmt4;
-      while((i < Iter) && (fabs(f1) > Eps||fabs(f2) > Eps)) {
-	i = i+1;
-	f1 = rho3(l3,l4)-mmt3;
-	f2 = rho4(l3,l4)-mmt4;
-	df13 = ( -rho3(l3+2.*h,l4)
-		 + 8. * rho3(l3+h,l4)
-		 - 8. * rho3(l3-h,l4)
-		 + rho3(l3-2.*h,l4))/(12.* h);
-	df23 = ( -rho4(l3+2.*h,l4)
-		 + 8. * rho4(l3+h,l4)
-		 - 8. * rho4(l3-h,l4)
-		 + rho4(l3-2.*h,l4))/(12.* h);
-	df14 = ( -rho3(l3,l4+2.*h)
-		 + 8. * rho3(l3,l4+h)
-		 - 8. * rho3(l3,l4-h)
-		 + rho3(l3,l4-2.*h))/(12.* h);
-	df24 = ( -rho4(l3,l4+2.*h)
-		 + 8. * rho4(l3,l4+h)
-		 - 8. * rho4(l3,l4-h)
-		 + rho4(l3,l4-2.*h))/(12.* h);
-	fdf = df13*df24 - df14*df23;
-	if(fdf == 0.) {i=Iter; break;}
-	else{
-	  l3 = l3 - (f1*df24 - f2*df14)/fdf;
-	  l4 = l4 + (f1*df23 - f2*df13)/fdf;
-	  f1 = rho3(l3,l4)-mmt3;
-	  f2 = rho4(l3,l4)-mmt4;
-	}
-      }
-      l2 = (pow(.9,l3)-pow(.1,l4)+pow(.9,l4)-pow(.1,l3))/mmt2;
-      if(l2 != 0. && i<Iter){
-	l1 = mmt1 - (pow(.5,l3)-pow(.5,l4))/l2;
-	if(ValidGLD(l1,l2,l3,l4)==1){
-	  status++;
-	  dksa=-999.;  // KS test based on CDF
-	  for(j=0;j<n;j++){
-	    l0 = GldFx(x[j],l1,l2,l3,l4);
-	    dksa = fmax(dksa, fabs(l0-edf[j]));
-	  }
-	  if(dksa<ksmin&& !ISNAN(dksa)){
-	    ksmin = dksa;
-	    lmd[0] = l1;
-	    lmd[1] = l2;
-	    lmd[2] = l3;
-	    lmd[3] = l4;
-	  }
-	}
-      }
-      // end of GLD LMoM
-
-      //  Fit with GLD MoP; *********
-      l3 = gldmom3;
-      l4 = gldmom4;
-      f1=1.; f2=1.;
-      i=0; k=0;
-      
-      mmt1=mp1; mmt2=mp2; mmt3=mp3; mmt4=mp4;
-      while((i < Iter) && (fabs(f1) > Eps ||fabs(f2) > Eps)) {
-	i = i+1;
-	f1 = rho3(l3,l4)-mmt3;
-	f2 = rho4(l3,l4)-mmt4;
-	df13 = ( -rho3(l3+2.*h,l4)
-		 + 8. * rho3(l3+h,l4)
-		 - 8. * rho3(l3-h,l4)
-		 + rho3(l3-2.*h,l4))/(12.* h);
-	df23 = ( -rho4(l3+2.*h,l4)
-		 + 8. * rho4(l3+h,l4)
-		 - 8. * rho4(l3-h,l4)
-		 + rho4(l3-2.*h,l4))/(12.* h);
-	df14 = ( -rho3(l3,l4+2.*h)
-		 + 8. * rho3(l3,l4+h)
-		 - 8. * rho3(l3,l4-h)
-		 + rho3(l3,l4-2.*h))/(12.* h);
-	df24 = ( -rho4(l3,l4+2.*h)
-		 + 8. * rho4(l3,l4+h)
-		 - 8. * rho4(l3,l4-h)
-		 + rho4(l3,l4-2.*h))/(12.* h);
-	fdf = df13*df24 - df14*df23;
-	if(fdf == 0.) {i=Iter; break;}
-	else{
-	  l3 = l3 - (f1*df24 - f2*df14)/fdf;
-	  l4 = l4 + (f1*df23 - f2*df13)/fdf;
-	  f1 = rho3(l3,l4)-mmt3;
-	  f2 = rho4(l3,l4)-mmt4;
-	}
-      }
-      l2 = (pow(.9,l3)-pow(.1,l4)+pow(.9,l4)-pow(.1,l3))/mmt2;
-      if(l2 != 0. && i<Iter){
-	l1 = mmt1 - (pow(.5,l3)-pow(.5,l4))/l2;
-	if(ValidGLD(l1,l2,l3,l4)==1){
-	  status++;
-	  dksa=-999.;  // KS test based on CDF
-	  for(j=0;j<n;j++){
-	    l0 = GldFx(x[j],l1,l2,l3,l4);
-	    dksa = fmax(dksa, fabs(l0-edf[j]));
-	  }
-	  if(dksa<ksmin&& !ISNAN(dksa)){
-	    ksmin = dksa;
-	    lmd[0] = l1;
-	    lmd[1] = l2;
-	    lmd[2] = l3;
-	    lmd[3] = l4;
-	  }
-	}
-      }
-      // end of GLD LMoP
-    }
-  }
-  l[0]=status;
-}
-  
 
 
 /***********************************************************  
@@ -703,7 +336,7 @@ void GLDMoM(double *xmts,double *chisq, int *sizes, double *os, double *xbin){
   double Eps = 1.e-9, tol = 6.123234e-17;
   int n=sizes[0], nbin=sizes[1], Iter=100, Igrid=100,Jgrid=100;
   double l1,l2,l3,l4, es[nbin],l0;
-  int i, j, k, igrid, jgrid;
+  int i, j, igrid, jgrid;
   double mmt1,mmt2,mmt3,mmt4;
   mmt1 = xmts[0]; mmt2 = xmts[1]; mmt3 = xmts[2]; mmt4 = xmts[3];
   
@@ -733,7 +366,7 @@ void GLDMoM(double *xmts,double *chisq, int *sizes, double *os, double *xbin){
       l3 = gldmom3;
       l4 = gldmom4;
       f1=1.; f2=1.;
-      i=0; k=0;
+      i=0; 
       
       while((i < Iter) && (fabs(f1) > Eps||fabs(f2) > Eps)) {
 	i ++;
@@ -793,7 +426,7 @@ void GLDMoM(double *xmts,double *chisq, int *sizes, double *os, double *xbin){
       l3 = gldmom3b;
       l4 = gldmom4b;
       f1=1.; f2=1.;
-      i=0; k=0;
+      i=0; 
       
       while((i < Iter) && (fabs(f1) > Eps||fabs(f2) > Eps)) {
 	i = i+1;
@@ -866,7 +499,7 @@ void GLDMoP(double *xmts,double *chisq, int *sizes, double *os, double *xbin){
   mmt1 = xmts[0]; mmt2 = xmts[1]; mmt3 = xmts[2]; mmt4 = xmts[3];
   
   double gldmop3 =0.000000001,gldmop4 =0.000000001;
-  double lstep =1./Igrid, lstep2 = 0.0002/Igrid;
+  double lstep =1./Igrid;
 
   double chi,chimin=9999999.;
 
@@ -907,7 +540,7 @@ void GLDMoP(double *xmts,double *chisq, int *sizes, double *os, double *xbin){
 		 - 8. * rho4(l3,l4-h)
 		 + rho4(l3,l4-2.*h))/(12.* h);
 	fdf = df13*df24 - df14*df23;
-	if(fdf == 0.) {i=Iter; break;}
+	if(fdf < tol) {i=Iter; break;}
 	else{
 	  l3 = l3 - (f1*df24 - f2*df14)/fdf;
 	  l4 = l4 + (f1*df23 - f2*df13)/fdf;
@@ -916,7 +549,7 @@ void GLDMoP(double *xmts,double *chisq, int *sizes, double *os, double *xbin){
 	}
       }
       l2 = (pow(.9,l3)-pow(.1,l4)+pow(.9,l4)-pow(.1,l3))/mmt2;
-      if(l2 != 0. && i<Iter){
+      if(fabs(l2) > tol && i<Iter){
 	l1 = mmt1 - (pow(.5,l3)-pow(.5,l4))/l2;
 	if(ValidGLD(l1,l2,l3,l4)==1){// better estimates?
 	  for(j=0;j<nbin-1;j++){
@@ -950,7 +583,7 @@ void GLDLMoM(double *xmts,double *chisq, int *sizes, double *os, double *xbin){
   double Eps = 1.e-9, tol = 6.123234e-17;
   int n=sizes[0], nbin=sizes[1], Iter=100, Igrid=100,Jgrid=100;
   double l1,l2,l3,l4, es[nbin],l0;
-  int i, j, k, igrid, jgrid;
+  int i, j, igrid, jgrid;
   double mmt1,mmt2,mmt3,mmt4;
   mmt1 = xmts[0]; mmt2 = xmts[1]; mmt3 = xmts[2]; mmt4 = xmts[3];
   
@@ -973,7 +606,7 @@ void GLDLMoM(double *xmts,double *chisq, int *sizes, double *os, double *xbin){
       l3 = gldlmom3;
       l4 = gldlmom4;
       f1=1.; f2=1.;
-      i=0; k=0;
+      i=0; 
       
       while((i < Iter) && (fabs(f1) > Eps||fabs(f2) > Eps)) {
 	i ++;
@@ -1005,13 +638,13 @@ void GLDLMoM(double *xmts,double *chisq, int *sizes, double *os, double *xbin){
 	}
       }
       //      if(i < Iter && l3 > -.25 && l4 > -.25){
-	l2 = (l3/(l3+1.)/(l3+2.) + l4/(l4+1.)/(l4+2.))/mmt2;
-	l1 = mmt1 - 1./l2/(l3+1.) + 1./l2/(l4+1.);
-	if(ValidGLD(l1,l2,l3,l4)==1){// better estimates?
-	  for(j=0;j<nbin-1;j++){
-	    l0 = GldFx(xbin[j+1],l1,l2,l3,l4);
-	    es[j] = l0 * n;
-	  }
+      l2 = (l3/(l3+1.)/(l3+2.) + l4/(l4+1.)/(l4+2.))/mmt2;
+      l1 = mmt1 - 1./l2/(l3+1.) + 1./l2/(l4+1.);
+      if(ValidGLD(l1,l2,l3,l4)==1){// better estimates?
+	for(j=0;j<nbin-1;j++){
+	  l0 = GldFx(xbin[j+1],l1,l2,l3,l4);
+	  es[j] = l0 * n;
+	}
 	  es[nbin-1] = n - es[nbin-2];
 	  for(j=0;j<nbin-2;j++){
 	    es[nbin-j-2] -= es[nbin-j-3];
