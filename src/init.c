@@ -27,6 +27,16 @@ void GLDLMoM(double *xmts, double *chisq, int *m,double *os, double *xbin);
 void RKSPvalue(double *x0);
 void RLMoM(double *x0, int *size, double *lmts);
 
+// ARL.c
+void arl0(double *lcl, double *x, int *nx,
+	 double *y, int *ny, double *z, int *n,
+	 double *pm0, double *pI0, double *lambda);
+void arl1(double *lcl, double *x, int *nx,
+	 double *y, int *ny, double *z, int *n,
+	 double *pm0, double *pI0, double *lambda);
+void simucc(int *B, int *T, int *n, double *pm0, double *pI0,
+	    double *lambda, double *Md, double *D);
+
 
 static const R_FortranMethodDef FortEntries[] = {
   //  {"RIsGld", (DL_FUNC) & RIsGld, 2},
@@ -41,6 +51,9 @@ static const R_FortranMethodDef FortEntries[] = {
   {"FitGBDMom", (DL_FUNC) & FitGBDMom, 3},
   {"RKSPvalue", (DL_FUNC) & RKSPvalue, 1},
   {"RLMoM", (DL_FUNC) & RLMoM, 3},
+  {"arl1", (DL_FUNC) & arl1, 10},
+  {"arl0", (DL_FUNC) & arl0, 10},
+  {"simucc", (DL_FUNC) & simucc, 8},
   {NULL, NULL, 0}
 };
 
